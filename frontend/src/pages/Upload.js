@@ -53,15 +53,21 @@ const Upload = () => {
     formData.append('file', file);
 
     try {
-      const response = await fetch('/upload', {
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
         const result = await response.json();
-        // Navigate to results page with the analysis data
-        navigate('/results', { state: { analysisResult: result } });
+        console.log('Upload result:', result); // For debugging
+        
+        // Navigate to results page with the new data format
+        navigate('/results', { 
+          state: { 
+            analysisResult: result 
+          } 
+        });
       } else {
         alert('Error analyzing file. Please try again.');
       }

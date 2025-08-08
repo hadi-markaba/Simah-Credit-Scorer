@@ -1,15 +1,65 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Configure.css';
-import calculationsData from '../data/calculations.json';
 
 const Configure = () => {
-  const [calculations, setCalculations] = useState(calculationsData);
+  const [calculations, setCalculations] = useState({ sections: [], variables: {} });
+  const [loading, setLoading] = useState(true);
   const [editingFormula, setEditingFormula] = useState(null);
+  const [editingSection, setEditingSection] = useState(null);
   const [showAddSection, setShowAddSection] = useState(false);
   const [showAddFormula, setShowAddFormula] = useState(null);
   const [selectedVariables, setSelectedVariables] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const navigate = useNavigate();
+
+  const handleBackToUpload = () => {
+    navigate('/');
+  };
+
+  // Fetch calculations data from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch both calculations and variables
+        const [calculationsResponse, variablesResponse] = await Promise.all([
+          fetch('/api/calculations/formula'),
+          fetch('/api/calculations/variables')
+        ]);
+        
+        if (calculationsResponse.ok && variablesResponse.ok) {
+          const calculationsResult = await calculationsResponse.json();
+          const variablesResult = await variablesResponse.json();
+          
+          if (calculationsResult.success && variablesResult.success) {
+            setCalculations({
+              ...calculationsResult.config,
+              variables: variablesResult.variables
+            });
+          } else {
+            console.error('Invalid response format:', { calculationsResult, variablesResult });
+            alert('Invalid response format from server');
+          }
+        } else {
+          console.error('Failed to fetch data:', { 
+            calculationsStatus: calculationsResponse.statusText,
+            variablesStatus: variablesResponse.statusText 
+          });
+          alert('Failed to load data from server');
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        alert('Error connecting to server');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleEditFormula = (sectionIndex, calculationIndex) => {
     setEditingFormula({ sectionIndex, calculationIndex });
@@ -35,6 +85,20 @@ const Configure = () => {
     }
   };
 
+  const handleEditSection = (sectionIndex) => {
+    setEditingSection(sectionIndex);
+  };
+
+  const handleSaveSection = (sectionIndex, updatedSection) => {
+    const updatedCalculations = { ...calculations };
+    updatedCalculations.sections[sectionIndex] = { 
+      ...updatedCalculations.sections[sectionIndex], 
+      ...updatedSection 
+    };
+    setCalculations(updatedCalculations);
+    setEditingSection(null);
+  };
+
   const handleSaveFormula = (sectionIndex, calculationIndex, updatedCalculation) => {
     const updatedCalculations = { ...calculations };
     if (calculationIndex === -1) {
@@ -58,22 +122,27 @@ const Configure = () => {
 
   const saveCalculations = async () => {
     try {
-      const response = await fetch('/api/calculations', {
+      const response = await fetch('/api/calculations/formula', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(calculations),
+        body: JSON.stringify({
+          sections: calculations.sections,
+          variables: calculations.variables
+        }),
       });
       
       if (response.ok) {
-        alert('Calculations saved successfully!');
+        const result = await response.json();
+        alert(`Calculations saved successfully! Updated ${result.sections_count} sections with ${result.total_formulas} formulas.`);
       } else {
-        alert('Error saving calculations');
+        const error = await response.json();
+        alert(`Error saving calculations: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error saving calculations:', error);
-      alert('Error saving calculations');
+      alert('Error saving calculations. Please check your connection.');
     }
   };
 
@@ -195,8 +264,7 @@ const Configure = () => {
         <div className="header-cell">Section</div>
         <div className="header-cell">Weight %</div>
         <div className="header-cell">Formula</div>
-        <div className="header-cell">Weight</div>
-        <div className="header-cell">Max</div>
+        <div className="header-cell">Max Points</div>
         <div className="header-cell">Actions</div>
       </div>
 
@@ -215,9 +283,19 @@ const Configure = () => {
             </div>
             
             <div className="table-cell"></div>
-            <div className="table-cell"></div>
-            <div className="table-cell"></div>
+            
+            <div className="table-cell max-points">
+              {section.max_points}
+            </div>
+            
             <div className="table-cell actions">
+              <button 
+                className="edit-btn"
+                onClick={() => handleEditSection(sectionIndex)}
+                title="Edit Section"
+              >
+                ✏️
+              </button>
               <button 
                 className="delete-section-btn"
                 onClick={() => handleDeleteSection(sectionIndex)}
@@ -252,10 +330,6 @@ const Configure = () => {
                     <span className="formula-text">{calculation.formula}</span>
                   </div>
                 </div>
-              </div>
-              
-              <div className="table-cell variable-weight">
-                {calculation.weight}%
               </div>
               
               <div className="table-cell max-points">
@@ -295,7 +369,6 @@ const Configure = () => {
             </div>
             <div className="table-cell"></div>
             <div className="table-cell"></div>
-            <div className="table-cell"></div>
           </div>
         </div>
       ))}
@@ -304,59 +377,80 @@ const Configure = () => {
 
   return (
     <div className="configure-container">
-      <div className="configure-header">
-        <img src="/markaba-logo.png" alt="Markaba" className="logo" />
-        <h1>Configure Credit Scoring</h1>
-        <div className="header-buttons">
-          <button className="add-section-button" onClick={() => setShowAddSection(true)}>
-            + Add Section
-          </button>
-          <button className="save-button" onClick={saveCalculations}>
-            Save Changes
-          </button>
+      {loading ? (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading calculations...</p>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="configure-header">
+            <img src="/markaba-logo.png" alt="Markaba" className="logo" />
+            <h1>Configure Credit Scoring</h1>
+            <div className="header-buttons">
+              <button className="add-section-button" onClick={() => setShowAddSection(true)}>
+                + Add Section
+              </button>
+              <button className="save-button" onClick={saveCalculations}>
+                Save Changes
+              </button>
+              <button className="back-to-upload-button" onClick={handleBackToUpload}>
+                Back to Upload
+              </button>
+            </div>
+          </div>
 
-      <div className="main-layout">
-        {/* Variables Library - Left Side */}
-        <div className="variables-sidebar">
-          <VariableSelector />
-        </div>
+          <div className="main-layout">
+            {/* Variables Library - Left Side */}
+            <div className="variables-sidebar">
+              <VariableSelector />
+            </div>
 
-        {/* Calculations Table - Right Side */}
-        <div className="calculations-panel">
-          <CalculationsTable />
-        </div>
-      </div>
+            {/* Calculations Table - Right Side */}
+            <div className="calculations-panel">
+              <CalculationsTable />
+            </div>
+          </div>
 
-      {/* Edit Formula Modal */}
-      {editingFormula && (
-        <FormulaEditor
-          section={calculations.sections[editingFormula.sectionIndex]}
-          calculation={calculations.sections[editingFormula.sectionIndex].calculations[editingFormula.calculationIndex]}
-          variables={calculations.variables}
-          onSave={(updatedCalculation) => handleSaveFormula(editingFormula.sectionIndex, editingFormula.calculationIndex, updatedCalculation)}
-          onCancel={() => setEditingFormula(null)}
-        />
-      )}
+          {/* Edit Formula Modal */}
+          {editingFormula && (
+            <FormulaEditor
+              section={calculations.sections[editingFormula.sectionIndex]}
+              calculation={calculations.sections[editingFormula.sectionIndex].calculations[editingFormula.calculationIndex]}
+              variables={calculations.variables}
+              onSave={(updatedCalculation) => handleSaveFormula(editingFormula.sectionIndex, editingFormula.calculationIndex, updatedCalculation)}
+              onCancel={() => setEditingFormula(null)}
+            />
+          )}
 
-      {/* Add Formula Modal */}
-      {showAddFormula !== null && (
-        <FormulaEditor
-          section={calculations.sections[showAddFormula]}
-          calculation={null}
-          variables={calculations.variables}
-          onSave={(newCalculation) => handleSaveFormula(showAddFormula, -1, newCalculation)}
-          onCancel={() => setShowAddFormula(null)}
-        />
-      )}
+          {/* Edit Section Modal */}
+          {editingSection !== null && (
+            <SectionEditor
+              section={calculations.sections[editingSection]}
+              onSave={(updatedSection) => handleSaveSection(editingSection, updatedSection)}
+              onCancel={() => setEditingSection(null)}
+            />
+          )}
 
-      {/* Add Section Modal */}
-      {showAddSection && (
-        <SectionEditor
-          onSave={handleAddSection}
-          onCancel={() => setShowAddSection(false)}
-        />
+          {/* Add Formula Modal */}
+          {showAddFormula !== null && (
+            <FormulaEditor
+              section={calculations.sections[showAddFormula]}
+              calculation={null}
+              variables={calculations.variables}
+              onSave={(newCalculation) => handleSaveFormula(showAddFormula, -1, newCalculation)}
+              onCancel={() => setShowAddFormula(null)}
+            />
+          )}
+
+          {/* Add Section Modal */}
+          {showAddSection && (
+            <SectionEditor
+              onSave={handleAddSection}
+              onCancel={() => setShowAddSection(false)}
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -367,9 +461,7 @@ const FormulaEditor = ({ section, calculation, variables, onSave, onCancel }) =>
   const [formData, setFormData] = useState({
     name: calculation?.name || '',
     formula: calculation?.formula || '',
-    weight: calculation?.weight || 0,
-    max_points: calculation?.max_points || 0,
-    variables: calculation?.variables || []
+    max_points: calculation?.max_points || 0
   });
   const [dragOver, setDragOver] = useState(false);
 
@@ -471,27 +563,14 @@ const FormulaEditor = ({ section, calculation, variables, onSave, onCancel }) =>
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label>Weight (%):</label>
-            <input
-              type="number"
-              value={formData.weight}
-              onChange={(e) => setFormData(prev => ({ ...prev, weight: parseInt(e.target.value) || 0 }))}
-              min="0"
-              max="100"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Max Points:</label>
-            <input
-              type="number"
-              value={formData.max_points}
-              onChange={(e) => setFormData(prev => ({ ...prev, max_points: parseInt(e.target.value) || 0 }))}
-              min="0"
-            />
-          </div>
+        <div className="form-group">
+          <label>Max Points:</label>
+          <input
+            type="number"
+            value={formData.max_points}
+            onChange={(e) => setFormData(prev => ({ ...prev, max_points: parseInt(e.target.value) || 0 }))}
+            min="0"
+          />
         </div>
 
         <div className="modal-buttons">
@@ -504,11 +583,12 @@ const FormulaEditor = ({ section, calculation, variables, onSave, onCancel }) =>
 };
 
 // Section Editor Component
-const SectionEditor = ({ onSave, onCancel }) => {
+const SectionEditor = ({ section, onSave, onCancel }) => {
   const [sectionData, setSectionData] = useState({
-    name: '',
-    weight: 0,
-    calculations: []
+    name: section?.name || '',
+    weight: section?.weight || 0,
+    max_points: section?.max_points || 0,
+    calculations: section?.calculations || []
   });
 
   const handleSave = () => {
@@ -522,7 +602,7 @@ const SectionEditor = ({ onSave, onCancel }) => {
   return (
     <div className="modal-overlay">
       <div className="modal-content">
-        <h3>Add New Section</h3>
+        <h3>{section ? 'Edit Section' : 'Add New Section'}</h3>
         
         <div className="form-group">
           <label>Section Name:</label>
@@ -533,13 +613,24 @@ const SectionEditor = ({ onSave, onCancel }) => {
           />
         </div>
 
-        <div className="form-group">
-          <label>Section Weight (%):</label>
-          <input
-            type="number"
-            value={sectionData.weight}
-            onChange={(e) => setSectionData(prev => ({ ...prev, weight: parseInt(e.target.value) }))}
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label>Section Weight (%):</label>
+            <input
+              type="number"
+              value={sectionData.weight}
+              onChange={(e) => setSectionData(prev => ({ ...prev, weight: parseInt(e.target.value) }))}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Max Points:</label>
+            <input
+              type="number"
+              value={sectionData.max_points}
+              onChange={(e) => setSectionData(prev => ({ ...prev, max_points: parseInt(e.target.value) }))}
+            />
+          </div>
         </div>
 
         <div className="modal-buttons">
