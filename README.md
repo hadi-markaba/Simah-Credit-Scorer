@@ -21,7 +21,6 @@ The application consists of two main components:
 ## 🛠️ Prerequisites
 
 - Docker and Docker Compose (for containerized setup)
-- Python 3.8+ (for local backend setup)
 - Node.js 16+ (for local frontend setup)
 - Anthropic API key for AI calculations
 
@@ -37,6 +36,7 @@ The application consists of two main components:
 
 2. **Create environment file**
    ```bash
+   cd backend
    # Create .env file in the root directory
    echo "ANTHROPIC_API_KEY=your_anthropic_api_key_here" > .env
    ```
@@ -50,38 +50,7 @@ The application consists of two main components:
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
 
-### Option 2: Local Development
-
-#### Backend Setup
-
-1. **Navigate to backend directory**
-   ```bash
-   cd backend
-   ```
-
-2. **Create virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Create environment file**
-   ```bash
-   # Create .env file in the backend directory
-   echo "ANTHROPIC_API_KEY=your_anthropic_api_key_here" > .env
-   ```
-
-5. **Run the backend**
-   ```bash
-   python main.py
-   ```
-
-#### Frontend Setup
+### Option 2: Frontend Local Development
 
 1. **Navigate to frontend directory**
    ```bash
@@ -249,28 +218,8 @@ frontend/
    npx serve -s build -l 3000
    ```
 
-## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+## 🆘 Documentation
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Check the documentation in the `/docs` directory
 - Review the API endpoints at `http://localhost:8000/docs`
-- Open an issue on the GitHub repository
 
-## 🔄 Updates
-
-- **v1.0.0**: Initial release with basic credit scoring functionality
-- **v1.1.0**: Added AI-powered calculations with Claude Sonnet 3.5
-- **v1.2.0**: Enhanced UI with sectioned scoring display
-- **v1.3.0**: Added formula configuration interface
